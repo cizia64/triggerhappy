@@ -1,0 +1,44 @@
+name: Build Triggerhappy for aarch64
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+      with:
+        platforms: aarch64
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Build Triggerhappy for aarch64
+      run: |
+        docker buildx build --platform linux/arm64 -t triggerhappy:latest .
+
+    - name: Save Build Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: triggerhappy-aarch64
+        path: |
+          ./path/to/your/compiled/binaries
