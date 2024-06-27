@@ -50,7 +50,7 @@ static int parse_evdef(char *evdef, trigger *t) {
 		} else {
 			int type = lookup_event_type(s_mod);
 			int c = lookup_event_code(s_mod);
-			if (type == EV_KEY && c >= 0) {
+			if ((type == EV_KEY || type == EV_ABS) && c >= 0) { 
 				t->modifiers[n] = c;
 			} else {
 				/* we cannot process this key code */
