@@ -193,7 +193,7 @@ void run_triggers(int type, int code, int value, keystate_holder ksh, device *de
 		     et->action &&
 		     correct_mode( et->mode ) &&
 		     devtag_equal(&(dev->tag[0]), &(et->devtag[0])) &&
-		     mods_equal(ksh, et->modifiers, (type==EV_KEY?code:-1) )) {
+		     if (mods_equal(ksh, et->modifiers, (type == EV_KEY || type == EV_ABS ? code : -1))) {
 			fprintf(stderr, "Executing trigger action: %s\n", et->action);
 			/* switch trigger mode or execute program? */
 			if (et->action[0] == '@') {
