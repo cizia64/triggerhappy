@@ -56,9 +56,26 @@ void add_device(char *dev, int fd, int excl, char *tag) {
 	while (*p != NULL) {
 		p = &( (*p)->next );
 	}
-	if (fd < 0) {
-		fd = open( dev, O_RDONLY );
+if (fd < 0) {
+	int retries = 120;
+	while (retries-- > 0) {
+		fd = open(dev, O_RDONLY);
+		if (fd >= 0)
+			break;
+		if (errno == ENOENT) {
+			fprintf(stderr, "Waiting for device '%s' to appear... (%d seconds left)\n", dev, retries);
+			sleep(1);
+			continue;
+		}
+		fprintf(stderr, "Error opening '%s': %s\n", dev, strerror(errno));
+		return;
 	}
+	if (fd < 0) {
+		fprintf(stderr, "Timeout waiting for device '%s' to appear.\n", dev);
+		return;
+	}
+}
+
 	if (fd >= 0) {
 		if (! device_is_suitable(fd) ) {
 			fprintf(stderr, "Device %s not suitable.\n", dev);
