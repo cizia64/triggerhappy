@@ -1,21 +1,43 @@
-PREFIX:=/usr/
-DESTDIR:=/
-BINDIR:=$(DESTDIR)/$(PREFIX)/sbin/
-MANDIR:=$(DESTDIR)/$(PREFIX)/share/man/man1/
+# Cross toolchain
+CROSS_COMPILE := /opt/aarch64-linux-gnu-7.5.0-linaro/bin/aarch64-linux-gnu-
+SYSROOT := /opt/aarch64-linux-gnu-7.5.0-linaro/sysroot
 
-PKGCONFIG = pkg-config
-HAVE_PKGCONFIG = $(shell $(PKGCONFIG) --version 2>/dev/null || echo no)
-ifneq ($(HAVE_PKGCONFIG),no)
-HAVE_SYSTEMD = $(shell $(PKGCONFIG) --exists libsystemd && echo 1 || echo 0)
-ifeq ($(HAVE_SYSTEMD),1)
-CPPFLAGS += -DHAVE_SYSTEMD=1
-CFLAGS += $(shell $(PKGCONFIG) --cflags libsystemd)
-LDLIBS += $(shell $(PKGCONFIG) --libs libsystemd)
+# Compiler
+CC := $(CROSS_COMPILE)gcc --sysroot=$(SYSROOT)
+PKGCONFIG := $(CROSS_COMPILE)pkg-config
+
+# Paths to libs (optionnel si pkg-config marche)
+INCLUDES :=
+LIBS :=
+
+# Static build flags
+#CFLAGS := -O2 -static $(INCLUDES)
+#CPPFLAGS :=
+#LDFLAGS := -static $(LIBS)
+
+# Install dirs
+PREFIX := /usr
+DESTDIR := $(SYSROOT)
+BINDIR := $(DESTDIR)$(PREFIX)/sbin
+MANDIR := $(DESTDIR)$(PREFIX)/share/man/man1
+
+# Version
+VERSION := $(shell cat version.inc)
+
+# Libsystemd
+HAVE_PKGCONFIG := $(shell $(PKGCONFIG) --version 2>/dev/null || echo no)
+ifeq ($(HAVE_PKGCONFIG),no)
+	HAVE_SYSTEMD := 0
+else
+	HAVE_SYSTEMD := $(shell PKG_CONFIG_SYSROOT_DIR=$(SYSROOT) PKG_CONFIG_LIBDIR=$(SYSROOT)/usr/lib/pkgconfig:$(SYSROOT)/usr/share/pkgconfig $(PKGCONFIG) --exists libsystemd && echo 1 || echo 0)
+	ifeq ($(HAVE_SYSTEMD),1)
+		CPPFLAGS += -DHAVE_SYSTEMD=1
+		CFLAGS += $(shell PKG_CONFIG_SYSROOT_DIR=$(SYSROOT) PKG_CONFIG_LIBDIR=$(SYSROOT)/usr/lib/pkgconfig:$(SYSROOT)/usr/share/pkgconfig $(PKGCONFIG) --cflags libsystemd)
+		LDLIBS += $(shell PKG_CONFIG_SYSROOT_DIR=$(SYSROOT) PKG_CONFIG_LIBDIR=$(SYSROOT)/usr/lib/pkgconfig:$(SYSROOT)/usr/share/pkgconfig $(PKGCONFIG) --libs libsystemd)
+	endif
 endif
-endif
 
-VERSION:=$(shell cat version.inc)
-
+# Composants
 THD_COMPS := thd keystate trigger eventnames devices cmdsocket obey ignore uinput triggerparser
 THCMD_COMPS := th-cmd cmdsocket
 
@@ -46,13 +68,9 @@ version.h: version.inc
 	sed -r 's!(.*)!#define TH_VERSION "\1"!' $< > $@
 
 clean:
-	rm -f *.d
-	rm -f *.o
-	rm -f linux_input_defs_gen.inc
-	rm -f evtable_*.inc
-	rm -f version.h
-	rm -f thd th-cmd
-	rm -f thd.1 th-cmd.1
+	rm -f *.d *.o
+	rm -f linux_input_defs_gen.inc evtable_*.inc version.h
+	rm -f thd th-cmd thd.1 th-cmd.1
 
 install: all
 	install -D thd $(BINDIR)/thd
