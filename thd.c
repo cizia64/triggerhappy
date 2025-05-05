@@ -101,18 +101,40 @@ static void print_triggerline(struct input_event ev, keystate_holder ksh) {
 /*
  * Read event from fd, decode it and pass it to handlers
  */
-static int read_event( device *dev ) {
+static int read_event(device *dev) {
 	int fd = dev->fd;
 	char *devname = dev->devname;
 	struct input_event ev;
-	int n = read( fd, &ev, sizeof(ev) );
-	if ( n != sizeof(ev) ) {
-		fprintf(stderr, "Error reading device '%s'\n", dev->devname);
-		return 1;
+	int n = read(fd, &ev, sizeof(ev));
+	
+	if (n != sizeof(ev)) {
+		fprintf(stderr, "Error reading device '%s'. Attempting to reopen...\n", devname);
+		close(fd);
+
+		int retries = 120;
+		while (retries-- > 0) {
+			fd = open(devname, O_RDONLY);
+			if (fd >= 0) {
+				dev->fd = fd;
+				fprintf(stderr, "Successfully reopened device '%s'\n", devname);
+				return 0;
+			}
+			if (errno == ENOENT) {
+				fprintf(stderr, "Device '%s' not found. Retrying... (%d seconds left)\n", devname, retries);
+				sleep(1);
+				continue;
+			}
+			fprintf(stderr, "Error reopening '%s': %s\n", devname, strerror(errno));
+			break;
+		}
+
+		fprintf(stderr, "Failed to reopen device '%s'. Giving up.\n", devname);
+		return 1; // Exit condition for this device
 	}
-	/* ignore all events except KEY, SW and REL*/
+
+	/* ignore all events except KEY, SW and REL */
 	if (ev.type == EV_KEY || ev.type == EV_SW || ev.type == EV_REL || ev.type == EV_ABS) {
-		if (ev.type == EV_KEY && is_ignored( ev.code, ignored_keys)) {
+		if (ev.type == EV_KEY && is_ignored(ev.code, ignored_keys)) {
 			return 0;
 		}
 		if ((ev.type == EV_REL || ev.type == EV_ABS) && normalize_events) {
@@ -123,14 +145,15 @@ static int read_event( device *dev ) {
 			}
 		}
 		if (dump_events) {
-			print_event( devname, ev );
-			print_triggerline( ev, *keystate );
+			print_event(devname, ev);
+			print_triggerline(ev, *keystate);
 		}
-		run_triggers( ev.type, ev.code, ev.value, *keystate, dev );
-		change_keystate( *keystate, ev );
+		run_triggers(ev.type, ev.code, ev.value, *keystate, dev);
+		change_keystate(*keystate, ev);
 	}
 	return 0;
 }
+
 
 static void check_device( device *d ) {
 	int fd = d->fd;
